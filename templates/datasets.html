@@ -1,0 +1,167 @@
+<!DOCTYPE>
+{% load static %}
+<html lang="">
+<head>
+    <title>Datasets</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet"
+          integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css"
+          integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://bootstraptema.ru/plugins/2015/bootstrap3/bootstrap.min.css"/>
+    <script type="text/javascript" src="https://bootstraptema.ru/plugins/jquery/jquery-1.11.3.min.js"></script>
+    <script type="text/javascript" src="https://bootstraptema.ru/plugins/2015/b-v3-3-6/bootstrap.min.js"></script>
+
+
+</head>
+<body>
+<nav class="navbar navbar-expand-lg navbar-light bg-light">
+    <a class="navbar-brand" href="/">FakeCSV</a>
+    <div class="container-fluid">
+        <a class="nav-link" href="/schemas">Schemas</a>
+    </div>
+    <div class="container-fluid">
+        <a class="nav-link" href="/datasets">Datasets</a>
+    </div>
+    {% if request.user.is_authenticated %}
+        <li class="nav-item">
+            <p>Hello, {{ request.user }}</p>
+        </li>
+        <a class="nav-link" href="#" id="logout"> Logout </a>
+        <script>
+            let logout = document.getElementById('logout');
+            logout.addEventListener('click', function () {
+                const url = "/auth/logout/";
+                fetch(url, {
+                    method: "GET",
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                })
+                    .then((response) => {
+                        location.reload();
+                    });
+            })
+        </script>
+    {% endif %}
+</nav>
+<div class="container">
+    <div class="row">
+        <div class="panel panel-default">
+            <div class="panel-heading">
+                <h3>
+                    Datasets
+                </h3>
+                <input type="number" id="samplesQty" min="1" placeholder="Enter number of samples to generate">
+                <button type="button" class="btn btn-success" id="send">Generate</button>
+            </div>
+            <table class="table">
+                <thead>
+                <tr>
+                    <th class="col-xs-2">№</th>
+                    <th class="col-xs-4">Created</th>
+                    <th class="col-xs-2">Status</th>
+                    <th class="col-xs-4">Actions</th>
+                </tr>
+                </thead>
+                <tbody id="tbody">
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+</body>
+<script>
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            let cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                let cookie = jQuery.trim(cookies[i]);
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    let send_btn = document.getElementById('send');
+    send_btn.addEventListener('click', function () {
+        let samplesQty = document.getElementById('samplesQty').value;
+        const url = '/generator/run/'
+        fetch(url, {
+            method: "POST",
+            headers: {
+                'Content-Type': 'application/json',
+                "X-CSRFToken": getCookie("csrftoken")
+            },
+            body: JSON.stringify({
+                'qty': samplesQty
+            })
+        })
+            .then((response) => {
+                if (response.ok) {
+                    location.reload();
+                } else {
+                    alert(response.text);
+                }
+            });
+    })
+    ;
+
+    const dataset_url = '/generator/datasets/';
+    fetch(dataset_url, {
+        method: "GET",
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+        .then(response => response.json())
+        .then((data) => {
+            let table = document.getElementById('tbody');
+            for (let i = 0; i < data.length; i++) {
+                let tr = document.createElement('tr');
+                for (const [key, value] of Object.entries(data[i])) {
+                    if (key !== 'download_url') {
+                        let th = document.createElement('th');
+                        let content = document.createTextNode(value);
+                        th.appendChild(content);
+                        tr.appendChild(th);
+                    } else {
+                        let link = document.createElement('a');
+                        link.setAttribute('id', data[i]['id']);
+                        let th = document.createElement('th');
+                        let download_btn = document.createElement('button');
+                        if (data[i]['status'] === 'SUCCESS') {
+                            let content = document.createTextNode('Download');
+                            download_btn.setAttribute('class', 'btn btn-success');
+                            download_btn.setAttribute('type', 'button');
+                            link.setAttribute('href', '/generator/download/' + value + '/');
+                            link.setAttribute('hidden', 'true');
+                            link.setAttribute('download', '');
+                        } else if (data[i]['status'] === 'FAILURE') {
+                            var content = document.createTextNode('');
+                            download_btn.setAttribute('class', 'btn btn-danger');
+                            download_btn.setAttribute('type', 'button');
+                        } else {
+                            var content = document.createTextNode('');
+                            download_btn.setAttribute('class', 'btn btn-secondary');
+                            download_btn.setAttribute('type', 'button');
+                        }
+                        download_btn.appendChild(content);
+                        download_btn.addEventListener('click', function () {
+                            document.getElementById(data[i]['id']).click();
+                        });
+                        th.appendChild(link);
+                        th.appendChild(download_btn);
+                        tr.appendChild(th);
+                    }
+                }
+                table.appendChild(tr);
+            }
+            ;
+        })
+</script>
+</html>
